@@ -1,0 +1,129 @@
+
+"use client";
+import { useState, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+
+export default function Home() {
+  const [markdown, setMarkdown] = useState<string>(
+    "# My Awesome Document\n\nWelcome to the **Markdown to PDF** converter!\n\n## Features\n- Live preview\n- Easy editing\n- Beautiful PDFs\n\nStart typing your markdown here..."
+  );
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  // Generate filename from markdown content
+  const generateFilename = (content: string): string => {
+    const lines = content.split("\n").filter((line) => line.trim());
+    if (lines.length === 0) return "document";
+    const headingLine = lines.find((line) => line.match(/^#{1,6}\s+/));
+    if (headingLine) {
+      return (
+        headingLine
+          .replace(/^#{1,6}\s+/, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, "")
+          .replace(/\s+/g, "-")
+          .slice(0, 50) || "document"
+      );
+    }
+    return (
+      lines[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, "")
+        .replace(/\s+/g, "-")
+        .slice(0, 50) || "document"
+    );
+  };
+
+  // Handle PDF download
+  const handleDownloadPDF = async () => {
+    if (!previewRef.current) return;
+    const html2pdf = (await import("html2pdf.js")).default;
+    const filename = generateFilename(markdown);
+    html2pdf(previewRef.current, {
+      margin: 0.5,
+      filename: `${filename}.pdf`,
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Navbar */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-gray-800">
+            Markdown Live Preview
+          </h1>
+          <button
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors duration-200"
+            onClick={handleDownloadPDF}
+          >
+            Download PDF
+          </button>
+        </div>
+      </header>
+
+      {/* Two Column Layout */}
+      <main className="flex-1 flex flex-col md:flex-row max-w-7xl mx-auto w-full px-4 py-6 gap-4">
+        {/* Editor Column */}
+        <section className="w-full md:w-1/2 flex flex-col">
+          <div className="bg-white rounded shadow flex-1 flex flex-col">
+            <div className="bg-gray-200 px-4 py-2 rounded-t">
+              <h2 className="text-sm font-semibold text-gray-700">
+                Markdown Editor
+              </h2>
+            </div>
+            <textarea
+              className="w-full h-full p-4 font-mono text-sm border-t border-gray-300 focus:outline-none focus:border-blue-500 resize-none"
+              value={markdown}
+              onChange={(e) => setMarkdown(e.target.value)}
+              placeholder="Start typing your markdown here..."
+              aria-label="Markdown input"
+              spellCheck={true}
+              autoFocus
+            />
+          </div>
+        </section>
+
+        {/* Preview Column */}
+        <section className="w-full md:w-1/2 flex flex-col">
+          <div className="bg-white rounded shadow flex-1 flex flex-col">
+            <div className="bg-gray-200 px-4 py-2 rounded-t">
+              <h2 className="text-sm font-semibold text-gray-700">
+                Live Preview
+              </h2>
+            </div>
+            <div
+              className="flex-1 p-4 overflow-auto border-t border-gray-300 prose max-w-none markdown-body"
+              ref={previewRef}
+              tabIndex={0}
+              aria-label="Markdown preview"
+            >
+              <ReactMarkdown
+                children={markdown}
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={{
+                  a: ({node, ...props}) => (
+                    <a target="_blank" rel="noopener noreferrer" {...props} />
+                  ),
+                  table: ({node, ...props}) => (
+                    <table className="border-collapse border border-gray-300" {...props} />
+                  ),
+                  th: ({node, ...props}) => (
+                    <th className="border border-gray-300 bg-gray-100 px-2 py-1" {...props} />
+                  ),
+                  td: ({node, ...props}) => (
+                    <td className="border border-gray-300 px-2 py-1" {...props} />
+                  ),
+                }}
+              />
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

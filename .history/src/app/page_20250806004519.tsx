@@ -6,8 +6,8 @@ function safeMarkedParse(md: string): string {
   // If Promise (should not happen in v15+ without callback), fallback to empty string
   return "";
 }
-import * as monaco from "monaco-editor";
-import { useState, useRef } from "react";
+
+import { useState, useRef, useEffect } from "react";
 // Developer info for modal
 const DEVELOPER_INFO = {
   name: "Diwan Malla",
@@ -31,6 +31,7 @@ const DEVELOPER_INFO = {
 };
 
 import { useLayoutEffect } from "react";
+import { useLayoutEffect } from "react";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import "github-markdown-css/github-markdown-light.css";
@@ -38,30 +39,33 @@ import "github-markdown-css/github-markdown-light.css";
 export default function Home() {
   const [markdown, setMarkdown] = useState<string>(
     "# My Awesome Document\n\nWelcome to the **Markdown to PDF** converter!\n\n## Features\n- Live preview\n- Easy editing\n- Beautiful PDFs\n\nStart typing your markdown here..."
-  );
-  const [showDevModal, setShowDevModal] = useState(false);
-  const previewRef = useRef<HTMLDivElement>(null);
+  const monacoInstance = useRef<any>(null);
   const editorRef = useRef<HTMLDivElement>(null);
-  const monacoInstance = useRef<monaco.editor.IStandaloneCodeEditor | null>(
-    null
-  );
-
-  useLayoutEffect(() => {
-    if (editorRef.current && !monacoInstance.current) {
-      monacoInstance.current = monaco.editor.create(editorRef.current, {
-        value: markdown,
-        language: "markdown",
-        theme: "vs-light",
-        fontSize: 15,
-        minimap: { enabled: false },
-        wordWrap: "on",
-        automaticLayout: true,
-      });
-      monacoInstance.current.onDidChangeModelContent(() => {
-        setMarkdown(monacoInstance.current!.getValue());
+  useEffect(() => {
+    let disposed = false;
+    if (typeof window !== "undefined" && editorRef.current && !monacoInstance.current) {
+      import("monaco-editor").then((monaco) => {
+        if (disposed) return;
+        monacoInstance.current = monaco.editor.create(editorRef.current!, {
+          value: markdown,
+          language: "markdown",
+          theme: "vs-light",
+          fontSize: 15,
+          minimap: { enabled: false },
+          wordWrap: "on",
+          automaticLayout: true,
+        });
+        monacoInstance.current.onDidChangeModelContent(() => {
+          setMarkdown(monacoInstance.current!.getValue());
+        });
       });
     }
     return () => {
+      disposed = true;
+      monacoInstance.current?.dispose();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
       monacoInstance.current?.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

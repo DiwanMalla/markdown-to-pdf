@@ -6,8 +6,8 @@ function safeMarkedParse(md: string): string {
   // If Promise (should not happen in v15+ without callback), fallback to empty string
   return "";
 }
-import * as monaco from "monaco-editor";
-import { useState, useRef } from "react";
+
+import { useState, useRef, useEffect } from "react";
 // Developer info for modal
 const DEVELOPER_INFO = {
   name: "Diwan Malla",
@@ -29,7 +29,8 @@ const DEVELOPER_INFO = {
   github: "https://github.com/diwanmalla",
   email: "diwanmalla@gmail.com",
 };
-
+import { renderToStaticMarkup } from "react-dom/server";
+import * as monaco from "monaco-editor";
 import { useLayoutEffect } from "react";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
