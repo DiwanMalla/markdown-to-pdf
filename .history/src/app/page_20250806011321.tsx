@@ -420,7 +420,7 @@ export default function Home() {
                   tabIndex={0}
                   aria-label="Markdown preview"
                   dangerouslySetInnerHTML={{
-                    __html: sanitizedHtml || safeMarkedParse(markdown),
+                    __html: safeDOMPurify(safeMarkedParse(markdown)),
                   }}
                 />
               </div>

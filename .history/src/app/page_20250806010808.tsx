@@ -1,6 +1,7 @@
 "use client"; // This file uses client-side features like Monaco Editor and DOM manipulation
 
 import { useState, useRef, useEffect } from "react";
+import DOMPurify from "dompurify";
 import { marked } from "marked";
 import "github-markdown-css/github-markdown-light.css";
 
@@ -12,108 +13,38 @@ function safeMarkedParse(md: string): string {
   return "";
 }
 
-// Safe DOMPurify wrapper for SSR
-async function safeDOMPurify(html: string): Promise<string> {
-  if (typeof window === "undefined") {
-    // Server-side: return unsanitized HTML (will be sanitized on client)
-    return html;
-  }
-  // Client-side: use DOMPurify
-  const DOMPurify = await import("dompurify");
-  return DOMPurify.default.sanitize(html);
-}
-
-// Developer info for modal
-const DEVELOPER_INFO = {
-  name: "Diwan Malla",
-  title: "Full-Stack Developer",
-  website: "https://www.diwanmalla.com.au",
-  location: "Sydney, Australia",
-  techStack: [
-    "Next.js",
-    "React",
-    "TypeScript",
-    "Tailwind CSS",
-    "Prisma",
-    "Node.js",
-    "MongoDB",
-    "PostgreSQL",
-  ],
-  portfolio: "https://www.diwanmalla.com.au",
-  linkedin: "https://www.linkedin.com/in/diwan-malla/",
-  github: "https://github.com/diwanmalla",
-  email: "diwanmalla@gmail.com",
-};
-
-// Monaco Editor interface
-interface MonacoEditor {
-  getValue(): string;
-  onDidChangeModelContent(callback: () => void): void;
-  dispose(): void;
-}
-
 export default function Home() {
   const [markdown, setMarkdown] = useState<string>(
     "# My Awesome Document\n\nWelcome to the **Markdown to PDF** converter!\n\n## Features\n- Live preview\n- Easy editing\n- Beautiful PDFs\n\nStart typing your markdown here..."
   );
   const [showDevModal, setShowDevModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
-  const [isClient, setIsClient] = useState(false);
-  const [sanitizedHtml, setSanitizedHtml] = useState<string>("");
   const previewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
-  const monacoInstance = useRef<MonacoEditor | null>(null);
+  const monacoInstance = useRef<monaco.editor.IStandaloneCodeEditor | null>(
+    null
+  );
 
-  // Ensure we're on client side before initializing Monaco
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Handle HTML sanitization on client side
-  useEffect(() => {
-    if (isClient) {
-      const sanitizeHtml = async () => {
-        const html = safeMarkedParse(markdown);
-        const sanitized = await safeDOMPurify(html);
-        setSanitizedHtml(sanitized);
-      };
-      sanitizeHtml();
+  useLayoutEffect(() => {
+    if (editorRef.current && !monacoInstance.current) {
+      monacoInstance.current = monaco.editor.create(editorRef.current, {
+        value: markdown,
+        language: "markdown",
+        theme: "vs-light",
+        fontSize: 15,
+        minimap: { enabled: false },
+        wordWrap: "on",
+        automaticLayout: true,
+      });
+      monacoInstance.current.onDidChangeModelContent(() => {
+        setMarkdown(monacoInstance.current!.getValue());
+      });
     }
-  }, [markdown, isClient]);
-
-  useEffect(() => {
-    if (!isClient || !editorRef.current || monacoInstance.current) return;
-
-    const initializeMonaco = async () => {
-      try {
-        const monaco = await import("monaco-editor");
-        
-        if (editorRef.current && !monacoInstance.current) {
-          monacoInstance.current = monaco.editor.create(editorRef.current, {
-            value: markdown,
-            language: "markdown",
-            theme: "vs-light",
-            fontSize: 15,
-            minimap: { enabled: false },
-            wordWrap: "on",
-            automaticLayout: true,
-          });
-          
-          monacoInstance.current.onDidChangeModelContent(() => {
-            setMarkdown(monacoInstance.current!.getValue());
-          });
-        }
-      } catch (error) {
-        console.error("Failed to load Monaco Editor:", error);
-      }
-    };
-
-    initializeMonaco();
-
     return () => {
       monacoInstance.current?.dispose();
     };
-  }, [isClient, markdown]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Generate filename from markdown content
   const generateFilename = (content: string): string => {
@@ -143,7 +74,7 @@ export default function Home() {
   const handleDownloadPDF = async () => {
     const html2pdf = (await import("html2pdf.js")).default;
     const filename = generateFilename(markdown);
-    const htmlString = `<div class='markdown-body'>${safeDOMPurify(
+    const htmlString = `<div class='markdown-body'>${DOMPurify.sanitize(
       safeMarkedParse(markdown)
     )}</div>`;
     const tempDiv = document.createElement("div");
@@ -230,7 +161,7 @@ export default function Home() {
                 <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-xl sm:text-2xl font-bold text-white">
                   {DEVELOPER_INFO.name
                     .split(" ")
-                    .map((n: string) => n[0])
+                    .map((n) => n[0])
                     .join("")}
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
@@ -264,7 +195,7 @@ export default function Home() {
                   Tech Stack
                 </h3>
                 <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
-                  {DEVELOPER_INFO.techStack.map((tech: string) => (
+                  {DEVELOPER_INFO.techStack.map((tech) => (
                     <span
                       key={tech}
                       className="px-2 sm:px-3 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-full text-xs font-medium border border-gray-300 hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 transition-all duration-200"
@@ -375,13 +306,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex-1 relative">
-                {isClient ? (
-                  <div ref={editorRef} className="absolute inset-0" />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                    <div className="text-gray-500 text-sm">Loading editor...</div>
-                  </div>
-                )}
+                <div ref={editorRef} className="absolute inset-0" />
               </div>
             </div>
           </div>
@@ -420,7 +345,7 @@ export default function Home() {
                   tabIndex={0}
                   aria-label="Markdown preview"
                   dangerouslySetInnerHTML={{
-                    __html: sanitizedHtml || safeMarkedParse(markdown),
+                    __html: DOMPurify.sanitize(safeMarkedParse(markdown)),
                   }}
                 />
               </div>

@@ -15,7 +15,7 @@ declare module "html2pdf.js" {
       scrollY?: number;
       windowWidth?: number;
       windowHeight?: number;
-      [key: string]: unknown;
+      [key: string]: any;
     };
     jsPDF?: {
       unit?: string;
@@ -24,7 +24,7 @@ declare module "html2pdf.js" {
       putOnlyUsedFonts?: boolean;
       floatPrecision?: number;
       userUnit?: number;
-      [key: string]: unknown;
+      [key: string]: any;
     };
     enableLinks?: boolean;
     pagebreak?: {
@@ -33,19 +33,19 @@ declare module "html2pdf.js" {
       after?: string | string[];
       avoid?: string | string[];
     };
-    [key: string]: unknown;
+    [key: string]: any;
   }
 
   interface Html2PdfWorker {
     from(element: HTMLElement): Html2PdfWorker;
     set(options: Html2PdfOptions): Html2PdfWorker;
     save(filename?: string): Promise<void>;
-    output(type: string, options?: Record<string, unknown>): Blob | string | ArrayBuffer;
-    outputPdf(type?: string): Blob | string | ArrayBuffer;
+    output(type: string, options?: any): any;
+    outputPdf(type?: string): any;
     then(
-      onFulfilled?: (value: Html2PdfWorker) => Html2PdfWorker | Promise<Html2PdfWorker>,
-      onRejected?: (reason: Error) => Html2PdfWorker | Promise<Html2PdfWorker>
-    ): Promise<Html2PdfWorker>;
+      onFulfilled?: (value: any) => any,
+      onRejected?: (reason: any) => any
+    ): Promise<any>;
   }
 
   function html2pdf(): Html2PdfWorker;

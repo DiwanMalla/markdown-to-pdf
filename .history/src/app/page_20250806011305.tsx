@@ -59,7 +59,6 @@ export default function Home() {
   const [showDevModal, setShowDevModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
   const [isClient, setIsClient] = useState(false);
-  const [sanitizedHtml, setSanitizedHtml] = useState<string>("");
   const previewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const monacoInstance = useRef<MonacoEditor | null>(null);
@@ -68,18 +67,6 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  // Handle HTML sanitization on client side
-  useEffect(() => {
-    if (isClient) {
-      const sanitizeHtml = async () => {
-        const html = safeMarkedParse(markdown);
-        const sanitized = await safeDOMPurify(html);
-        setSanitizedHtml(sanitized);
-      };
-      sanitizeHtml();
-    }
-  }, [markdown, isClient]);
 
   useEffect(() => {
     if (!isClient || !editorRef.current || monacoInstance.current) return;
@@ -420,7 +407,7 @@ export default function Home() {
                   tabIndex={0}
                   aria-label="Markdown preview"
                   dangerouslySetInnerHTML={{
-                    __html: sanitizedHtml || safeMarkedParse(markdown),
+                    __html: safeDOMPurify(safeMarkedParse(markdown)),
                   }}
                 />
               </div>

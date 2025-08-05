@@ -1,9 +1,4 @@
 "use client"; // This file uses client-side features like Monaco Editor and DOM manipulation
-
-import { useState, useRef, useEffect } from "react";
-import { marked } from "marked";
-import "github-markdown-css/github-markdown-light.css";
-
 // Helper to ensure marked.parse returns string synchronously
 function safeMarkedParse(md: string): string {
   const result = marked.parse(md);
@@ -11,18 +6,8 @@ function safeMarkedParse(md: string): string {
   // If Promise (should not happen in v15+ without callback), fallback to empty string
   return "";
 }
-
-// Safe DOMPurify wrapper for SSR
-async function safeDOMPurify(html: string): Promise<string> {
-  if (typeof window === "undefined") {
-    // Server-side: return unsanitized HTML (will be sanitized on client)
-    return html;
-  }
-  // Client-side: use DOMPurify
-  const DOMPurify = await import("dompurify");
-  return DOMPurify.default.sanitize(html);
-}
-
+import * as monaco from "monaco-editor";
+import { useState, useRef } from "react";
 // Developer info for modal
 const DEVELOPER_INFO = {
   name: "Diwan Malla",
@@ -45,75 +30,43 @@ const DEVELOPER_INFO = {
   email: "diwanmalla@gmail.com",
 };
 
-// Monaco Editor interface
-interface MonacoEditor {
-  getValue(): string;
-  onDidChangeModelContent(callback: () => void): void;
-  dispose(): void;
-}
+import { useLayoutEffect } from "react";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
+import "github-markdown-css/github-markdown-light.css";
 
 export default function Home() {
   const [markdown, setMarkdown] = useState<string>(
     "# My Awesome Document\n\nWelcome to the **Markdown to PDF** converter!\n\n## Features\n- Live preview\n- Easy editing\n- Beautiful PDFs\n\nStart typing your markdown here..."
   );
   const [showDevModal, setShowDevModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
-  const [isClient, setIsClient] = useState(false);
-  const [sanitizedHtml, setSanitizedHtml] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   const previewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
-  const monacoInstance = useRef<MonacoEditor | null>(null);
+  const monacoInstance = useRef<monaco.editor.IStandaloneCodeEditor | null>(
+    null
+  );
 
-  // Ensure we're on client side before initializing Monaco
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Handle HTML sanitization on client side
-  useEffect(() => {
-    if (isClient) {
-      const sanitizeHtml = async () => {
-        const html = safeMarkedParse(markdown);
-        const sanitized = await safeDOMPurify(html);
-        setSanitizedHtml(sanitized);
-      };
-      sanitizeHtml();
+  useLayoutEffect(() => {
+    if (editorRef.current && !monacoInstance.current) {
+      monacoInstance.current = monaco.editor.create(editorRef.current, {
+        value: markdown,
+        language: "markdown",
+        theme: "vs-light",
+        fontSize: 15,
+        minimap: { enabled: false },
+        wordWrap: "on",
+        automaticLayout: true,
+      });
+      monacoInstance.current.onDidChangeModelContent(() => {
+        setMarkdown(monacoInstance.current!.getValue());
+      });
     }
-  }, [markdown, isClient]);
-
-  useEffect(() => {
-    if (!isClient || !editorRef.current || monacoInstance.current) return;
-
-    const initializeMonaco = async () => {
-      try {
-        const monaco = await import("monaco-editor");
-        
-        if (editorRef.current && !monacoInstance.current) {
-          monacoInstance.current = monaco.editor.create(editorRef.current, {
-            value: markdown,
-            language: "markdown",
-            theme: "vs-light",
-            fontSize: 15,
-            minimap: { enabled: false },
-            wordWrap: "on",
-            automaticLayout: true,
-          });
-          
-          monacoInstance.current.onDidChangeModelContent(() => {
-            setMarkdown(monacoInstance.current!.getValue());
-          });
-        }
-      } catch (error) {
-        console.error("Failed to load Monaco Editor:", error);
-      }
-    };
-
-    initializeMonaco();
-
     return () => {
       monacoInstance.current?.dispose();
     };
-  }, [isClient, markdown]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Generate filename from markdown content
   const generateFilename = (content: string): string => {
@@ -143,7 +96,7 @@ export default function Home() {
   const handleDownloadPDF = async () => {
     const html2pdf = (await import("html2pdf.js")).default;
     const filename = generateFilename(markdown);
-    const htmlString = `<div class='markdown-body'>${safeDOMPurify(
+    const htmlString = `<div class='markdown-body'>${DOMPurify.sanitize(
       safeMarkedParse(markdown)
     )}</div>`;
     const tempDiv = document.createElement("div");
@@ -165,18 +118,14 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xs sm:text-sm">
-                MD
-              </span>
+              <span className="text-white font-bold text-xs sm:text-sm">MD</span>
             </div>
             <div>
               <h1 className="text-base sm:text-lg lg:text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                 <span className="hidden sm:inline">Markdown to PDF</span>
                 <span className="sm:hidden">MD to PDF</span>
               </h1>
-              <p className="text-xs text-gray-500 hidden sm:block">
-                Live preview & export
-              </p>
+              <p className="text-xs text-gray-500 hidden sm:block">Live preview & export</p>
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
@@ -219,9 +168,7 @@ export default function Home() {
               {/* Status Badge */}
               <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-full text-xs sm:text-sm font-semibold border border-green-200">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="hidden sm:inline">
-                  Open to work: Internship Full Stack Developer
-                </span>
+                <span className="hidden sm:inline">Open to work: Internship Full Stack Developer</span>
                 <span className="sm:hidden">Open to work: Full Stack Dev</span>
               </div>
 
@@ -230,15 +177,13 @@ export default function Home() {
                 <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-xl sm:text-2xl font-bold text-white">
                   {DEVELOPER_INFO.name
                     .split(" ")
-                    .map((n: string) => n[0])
+                    .map((n) => n[0])
                     .join("")}
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                   {DEVELOPER_INFO.name}
                 </h2>
-                <p className="text-base sm:text-lg text-gray-600">
-                  {DEVELOPER_INFO.title}
-                </p>
+                <p className="text-base sm:text-lg text-gray-600">{DEVELOPER_INFO.title}</p>
                 <p className="text-sm text-gray-500 flex items-center justify-center gap-1">
                   📍 {DEVELOPER_INFO.location}
                 </p>
@@ -251,10 +196,7 @@ export default function Home() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                🌐{" "}
-                <span className="hidden xs:inline">
-                  {DEVELOPER_INFO.website}
-                </span>
+                🌐 <span className="hidden xs:inline">{DEVELOPER_INFO.website}</span>
                 <span className="xs:hidden">Portfolio</span>
               </a>
 
@@ -264,7 +206,7 @@ export default function Home() {
                   Tech Stack
                 </h3>
                 <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
-                  {DEVELOPER_INFO.techStack.map((tech: string) => (
+                  {DEVELOPER_INFO.techStack.map((tech) => (
                     <span
                       key={tech}
                       className="px-2 sm:px-3 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-full text-xs font-medium border border-gray-300 hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 transition-all duration-200"
@@ -323,23 +265,23 @@ export default function Home() {
         {/* Mobile Tab Switcher */}
         <div className="lg:hidden mb-4">
           <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
+            <button 
               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
-                activeTab === "editor"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
+                activeTab === 'editor' 
+                  ? 'bg-white text-gray-900 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
-              onClick={() => setActiveTab("editor")}
+              onClick={() => setActiveTab('editor')}
             >
               ✏️ Editor
             </button>
-            <button
+            <button 
               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
-                activeTab === "preview"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
+                activeTab === 'preview' 
+                  ? 'bg-white text-gray-900 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
-              onClick={() => setActiveTab("preview")}
+              onClick={() => setActiveTab('preview')}
             >
               👁️ Preview
             </button>
@@ -348,11 +290,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 h-[calc(100vh-180px)] sm:h-[calc(100vh-160px)] lg:h-[calc(100vh-140px)]">
           {/* Enhanced Editor Column */}
-          <div
-            className={`group ${
-              activeTab === "editor" ? "block" : "hidden"
-            } lg:block`}
-          >
+          <div className={`group ${activeTab === 'editor' ? 'block' : 'hidden'} lg:block`}>
             <div className="bg-white/70 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-xl border border-gray-200/50 h-full flex flex-col overflow-hidden hover:shadow-2xl transition-all duration-300">
               <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200/50 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 sm:gap-3">
@@ -375,23 +313,13 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex-1 relative">
-                {isClient ? (
-                  <div ref={editorRef} className="absolute inset-0" />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                    <div className="text-gray-500 text-sm">Loading editor...</div>
-                  </div>
-                )}
+                <div ref={editorRef} className="absolute inset-0" />
               </div>
             </div>
           </div>
 
           {/* Enhanced Preview Column */}
-          <div
-            className={`group ${
-              activeTab === "preview" ? "block" : "hidden"
-            } lg:block`}
-          >
+          <div className={`group ${activeTab === 'preview' ? 'block' : 'hidden'} lg:block`}>
             <div className="bg-white/70 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-xl border border-gray-200/50 h-full flex flex-col overflow-hidden hover:shadow-2xl transition-all duration-300">
               <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200/50 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 sm:gap-3">
@@ -420,7 +348,7 @@ export default function Home() {
                   tabIndex={0}
                   aria-label="Markdown preview"
                   dangerouslySetInnerHTML={{
-                    __html: sanitizedHtml || safeMarkedParse(markdown),
+                    __html: DOMPurify.sanitize(safeMarkedParse(markdown)),
                   }}
                 />
               </div>

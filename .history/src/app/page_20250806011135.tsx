@@ -13,14 +13,14 @@ function safeMarkedParse(md: string): string {
 }
 
 // Safe DOMPurify wrapper for SSR
-async function safeDOMPurify(html: string): Promise<string> {
+function safeDOMPurify(html: string): string {
   if (typeof window === "undefined") {
     // Server-side: return unsanitized HTML (will be sanitized on client)
     return html;
   }
   // Client-side: use DOMPurify
-  const DOMPurify = await import("dompurify");
-  return DOMPurify.default.sanitize(html);
+  const DOMPurify = require("dompurify");
+  return DOMPurify.sanitize(html);
 }
 
 // Developer info for modal
@@ -59,7 +59,6 @@ export default function Home() {
   const [showDevModal, setShowDevModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
   const [isClient, setIsClient] = useState(false);
-  const [sanitizedHtml, setSanitizedHtml] = useState<string>("");
   const previewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const monacoInstance = useRef<MonacoEditor | null>(null);
@@ -68,18 +67,6 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  // Handle HTML sanitization on client side
-  useEffect(() => {
-    if (isClient) {
-      const sanitizeHtml = async () => {
-        const html = safeMarkedParse(markdown);
-        const sanitized = await safeDOMPurify(html);
-        setSanitizedHtml(sanitized);
-      };
-      sanitizeHtml();
-    }
-  }, [markdown, isClient]);
 
   useEffect(() => {
     if (!isClient || !editorRef.current || monacoInstance.current) return;
@@ -143,7 +130,7 @@ export default function Home() {
   const handleDownloadPDF = async () => {
     const html2pdf = (await import("html2pdf.js")).default;
     const filename = generateFilename(markdown);
-    const htmlString = `<div class='markdown-body'>${safeDOMPurify(
+    const htmlString = `<div class='markdown-body'>${DOMPurify.sanitize(
       safeMarkedParse(markdown)
     )}</div>`;
     const tempDiv = document.createElement("div");
@@ -420,7 +407,7 @@ export default function Home() {
                   tabIndex={0}
                   aria-label="Markdown preview"
                   dangerouslySetInnerHTML={{
-                    __html: sanitizedHtml || safeMarkedParse(markdown),
+                    __html: DOMPurify.sanitize(safeMarkedParse(markdown)),
                   }}
                 />
               </div>
