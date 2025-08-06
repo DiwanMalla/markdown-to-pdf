@@ -99,7 +99,7 @@ export default function Home() {
 
         if (editorRef.current && !monacoInstance.current && isMounted) {
           editor = monaco.editor.create(editorRef.current, {
-            value: initialMarkdown.current,
+            value: markdown,
             language: "markdown",
             theme: "vs-light",
             fontSize: 15,

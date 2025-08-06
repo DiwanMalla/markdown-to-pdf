@@ -48,7 +48,6 @@ const DEVELOPER_INFO = {
 // Monaco Editor interface
 interface MonacoEditor {
   getValue(): string;
-  setValue(value: string): void;
   onDidChangeModelContent(callback: () => void): void;
   dispose(): void;
 }
@@ -64,7 +63,6 @@ export default function Home() {
   const previewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const monacoInstance = useRef<MonacoEditor | null>(null);
-  const initialMarkdown = useRef(markdown);
 
   // Ensure we're on client side before initializing Monaco
   useEffect(() => {
@@ -99,7 +97,7 @@ export default function Home() {
 
         if (editorRef.current && !monacoInstance.current && isMounted) {
           editor = monaco.editor.create(editorRef.current, {
-            value: initialMarkdown.current,
+            value: markdown,
             language: "markdown",
             theme: "vs-light",
             fontSize: 15,

@@ -48,7 +48,6 @@ const DEVELOPER_INFO = {
 // Monaco Editor interface
 interface MonacoEditor {
   getValue(): string;
-  setValue(value: string): void;
   onDidChangeModelContent(callback: () => void): void;
   dispose(): void;
 }
@@ -64,7 +63,6 @@ export default function Home() {
   const previewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const monacoInstance = useRef<MonacoEditor | null>(null);
-  const initialMarkdown = useRef(markdown);
 
   // Ensure we're on client side before initializing Monaco
   useEffect(() => {
@@ -83,7 +81,6 @@ export default function Home() {
     }
   }, [markdown, isClient]);
 
-  // Initialize Monaco Editor only once
   useEffect(() => {
     if (!isClient || !editorRef.current) return;
 
@@ -99,7 +96,7 @@ export default function Home() {
 
         if (editorRef.current && !monacoInstance.current && isMounted) {
           editor = monaco.editor.create(editorRef.current, {
-            value: initialMarkdown.current,
+            value: markdown,
             language: "markdown",
             theme: "vs-light",
             fontSize: 15,
@@ -143,17 +140,7 @@ export default function Home() {
         }
       }
     };
-  }, [isClient]); // Only depend on isClient
-
-  // Update Monaco Editor content when markdown changes externally
-  useEffect(() => {
-    if (monacoInstance.current && isClient) {
-      const currentValue = monacoInstance.current.getValue();
-      if (currentValue !== markdown) {
-        monacoInstance.current.setValue(markdown);
-      }
-    }
-  }, [markdown, isClient]);
+  }, [isClient, markdown]);
 
   // Generate filename from markdown content
   const generateFilename = (content: string): string => {

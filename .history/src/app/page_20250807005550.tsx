@@ -48,7 +48,6 @@ const DEVELOPER_INFO = {
 // Monaco Editor interface
 interface MonacoEditor {
   getValue(): string;
-  setValue(value: string): void;
   onDidChangeModelContent(callback: () => void): void;
   dispose(): void;
 }
@@ -64,7 +63,6 @@ export default function Home() {
   const previewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const monacoInstance = useRef<MonacoEditor | null>(null);
-  const initialMarkdown = useRef(markdown);
 
   // Ensure we're on client side before initializing Monaco
   useEffect(() => {
@@ -83,23 +81,18 @@ export default function Home() {
     }
   }, [markdown, isClient]);
 
-  // Initialize Monaco Editor only once
   useEffect(() => {
-    if (!isClient || !editorRef.current) return;
+    if (!isClient || !editorRef.current || monacoInstance.current) return;
 
     let isMounted = true;
-    let editor: MonacoEditor | null = null;
 
     const initializeMonaco = async () => {
       try {
-        // Avoid creating multiple editors
-        if (monacoInstance.current || !isMounted) return;
-
         const monaco = await import("monaco-editor");
 
         if (editorRef.current && !monacoInstance.current && isMounted) {
-          editor = monaco.editor.create(editorRef.current, {
-            value: initialMarkdown.current,
+          monacoInstance.current = monaco.editor.create(editorRef.current, {
+            value: markdown,
             language: "markdown",
             theme: "vs-light",
             fontSize: 15,
@@ -108,12 +101,9 @@ export default function Home() {
             automaticLayout: true,
           });
 
-          monacoInstance.current = editor;
-
-          editor.onDidChangeModelContent(() => {
-            if (editor && isMounted) {
-              const value = editor.getValue();
-              setMarkdown(value);
+          monacoInstance.current.onDidChangeModelContent(() => {
+            if (monacoInstance.current && isMounted) {
+              setMarkdown(monacoInstance.current.getValue());
             }
           });
         }
@@ -122,38 +112,20 @@ export default function Home() {
       }
     };
 
-    const timeoutId = setTimeout(initializeMonaco, 100);
+    initializeMonaco();
 
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
-      
-      if (editor && editor === monacoInstance.current) {
+      if (monacoInstance.current) {
         try {
-          editor.dispose();
-        } catch (error) {
-          // Silently handle disposal errors in development
-          if (process.env.NODE_ENV === 'development') {
-            console.debug("Monaco Editor disposal error (expected in development):", error);
-          } else {
-            console.warn("Error disposing Monaco Editor:", error);
-          }
-        } finally {
+          monacoInstance.current.dispose();
           monacoInstance.current = null;
+        } catch (error) {
+          console.warn("Error disposing Monaco Editor:", error);
         }
       }
     };
-  }, [isClient]); // Only depend on isClient
-
-  // Update Monaco Editor content when markdown changes externally
-  useEffect(() => {
-    if (monacoInstance.current && isClient) {
-      const currentValue = monacoInstance.current.getValue();
-      if (currentValue !== markdown) {
-        monacoInstance.current.setValue(markdown);
-      }
-    }
-  }, [markdown, isClient]);
+  }, [isClient]);
 
   // Generate filename from markdown content
   const generateFilename = (content: string): string => {
@@ -181,25 +153,21 @@ export default function Home() {
 
   // Handle PDF download
   const handleDownloadPDF = async () => {
-    try {
-      const html2pdf = (await import("html2pdf.js")).default;
-      const filename = generateFilename(markdown);
-      const htmlString = `<div class='markdown-body'>${await safeDOMPurify(
-        safeMarkedParse(markdown)
-      )}</div>`;
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = htmlString;
-      document.body.appendChild(tempDiv);
-      await html2pdf(tempDiv, {
-        margin: 0.5,
-        filename: `${filename}.pdf`,
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
-      });
-      document.body.removeChild(tempDiv);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-    }
+    const html2pdf = (await import("html2pdf.js")).default;
+    const filename = generateFilename(markdown);
+    const htmlString = `<div class='markdown-body'>${safeDOMPurify(
+      safeMarkedParse(markdown)
+    )}</div>`;
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = htmlString;
+    document.body.appendChild(tempDiv);
+    await html2pdf(tempDiv, {
+      margin: 0.5,
+      filename: `${filename}.pdf`,
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+    });
+    document.body.removeChild(tempDiv);
   };
 
   return (
